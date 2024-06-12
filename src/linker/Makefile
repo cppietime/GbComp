@@ -1,5 +1,5 @@
-CC=g++-10
-FLAGS=-std=c++2a -Wno-narrowing -Werror
+CC=g++
+FLAGS=-std=c++2a -Wno-narrowing
 
 linker.o: linker.cpp linker.hpp
 	$(CC) $(FLAGS) linker.cpp -o linker.o -c

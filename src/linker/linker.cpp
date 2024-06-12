@@ -114,8 +114,8 @@ namespace gbds
             return LinkedFunction{std::move(binary), std::move(patches)};
         }
 
-        void Linker::WriteFunction_(const std::span<uint8_t> binary, const std::map<size_t, Patch>& patches_in, size_t start_offset, std::ostream& buffer, std::map<size_t, Patch>& patch_accum) {
-            buffer.write(reinterpret_cast<char*>(binary.data()), binary.size());
+        void Linker::WriteFunction_(const std::span<const uint8_t> binary, const std::map<size_t, Patch>& patches_in, size_t start_offset, std::ostream& buffer, std::map<size_t, Patch>& patch_accum) {
+            buffer.write(reinterpret_cast<const char*>(binary.data()), binary.size());
             for (const auto& itr : patches_in) {
                 patch_accum.insert({itr.first + start_offset, itr.second});
             }
@@ -128,20 +128,63 @@ namespace gbds
                 if (sym_itr == symbols.end()) {
                     throw "Could not find symbol \"" + std::string(itr.second.base) + "\"";
                 }
-                gbops::AddressWord value = sym_itr->second;
+                gbops::AddressWord value = sym_itr->second + itr.second.offset;
                 WriteWordLE(stream, value);
             }
         }
 
         void Linker::WriteHeader_(const Header& header, std::ostream& stream) const {
+            // NOP; JP <starting_point>;
             WriteByte(stream, 0x00);
             WriteByte(stream, 0xC3);
             WriteWordLE(stream, header.starting_point);
+
             char zeros[48] {0}; // Logo placeholder
             stream.write(zeros, sizeof(zeros));
             stream.write(reinterpret_cast<const char*>(&header.long_title), 26);
             uint8_t checksum = header.Checksum();
             WriteByte(stream, checksum);
+        }
+
+        static void pad_to(std::ostream& stream, size_t len, char fill = 0) {
+            stream.seekp(0, std::ios::end);
+            size_t pos = stream.tellp();
+            if (pos >= len) {
+                stream.seekp(pos);
+                return;
+            }
+            size_t remaining = len - pos;
+            std::vector<char> zeros(remaining, fill);
+            stream.write(zeros.data(), remaining);
+        }
+
+        void Linker::Write(const Header& header, const std::map<std::string_view, gbops::AddressWord>& symbols, const std::map<std::string_view, LinkedFunction>& funcs, std::ostream& stream) {
+            // Write header
+            stream.seekp(0);
+            pad_to(stream, 0x100);
+            WriteHeader_(header, stream);
+
+            // Write functions
+            std::map<size_t, Patch> patches;
+            for (const auto& itr : funcs) {
+                std::string_view name = itr.first;
+                const LinkedFunction& function = itr.second;
+                const auto& sym_itr = symbols.find(name);
+                if (sym_itr == symbols.end()) {
+                    throw "No location found for function \"" + std::string(name) + "\"";
+                }
+                gbops::AddressWord addr = sym_itr->second;
+                // TODO: handle ROM banks
+                pad_to(stream, addr);
+                WriteFunction_(function.data, function.patches, addr, stream, patches);
+            }
+            
+            // Back patch references
+            BackPatch_(patches, symbols, 0, stream);
+
+            // Write remaining padding
+            size_t total_rom_size = 1 << (15 + header.rom_size_exp);
+            pad_to(stream, total_rom_size);
         }
 
     } // namespace linker

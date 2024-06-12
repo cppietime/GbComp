@@ -1,5 +1,6 @@
 #include "linker.hpp"
 
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -45,6 +46,63 @@ void LinkSimpleFunction() {
     linker::LinkedFunction expected_func {{std::begin(expected_binary), std::end(expected_binary)}, expected_patches};
 }
 
+void ProduceTestROM() {
+    using namespace gbds::linker;
+    using namespace gbds::gbops;
+    Header header {
+        .starting_point = 0x150,
+        .short_title = "TEST",
+        .cgb_type = Header::CgbType::BACKWARDS_COMPATIBLE,
+        .mapper_type = Header::MapperType::ROM,
+        .rom_size_exp = 0,
+        .num_ram_banks = Header::RamBanks::NONE
+    };
+    using opptr = std::unique_ptr<Opcode>;
+    opptr ops[] {
+        std::make_unique<MoveByte>(RegisterByte::A, (unsigned char)0b10010000),
+        std::make_unique<MemHigh>(0x40, true),
+        std::make_unique<LoadWord>(RegisterWord::HL, 0x8000),
+        std::make_unique<BinOpReg>(BinOp::XOR, RegisterByte::A),
+        std::make_unique<StoreByte>(RegisterPointer::HL_INC),
+        std::make_unique<MoveByte>(RegisterByte::A, (unsigned char)0x90),
+        std::make_unique<BinOpReg>(BinOp::CP, RegisterByte::H),
+        std::make_unique<JumpImmediate>(Condition::Z, 0x0000),
+        std::make_unique<JumpImmediate>(Condition::ALWAYS, 0x0000)
+    };
+    OpcodeFunction of {
+        "main",
+        {std::make_move_iterator(std::begin(ops)), std::make_move_iterator(std::end(ops))},
+        {
+            {0, ".start"},
+            {3, ".inc"}
+        },
+        {
+            {7, {".start", 0}},
+            {8, {".inc", 0}}
+        }
+    };
+    Linker linker;
+    LinkedFunction lf = linker.LinkFunction(of);
+    std::stringstream sstr;
+    linker.Write(
+        header,
+        {
+            {"main", 0x150}
+        },
+        {
+            {"main", lf}
+        },
+        sstr
+    );
+
+    std::ofstream outfile("out.gb", std::ios_base::binary);
+    sstr.seekg(0);
+    std::string str = sstr.str();
+    outfile.write(str.c_str(), str.size());
+    outfile.close();
+}
+
 int main() {
     LinkSimpleFunction();
+    ProduceTestROM();
 }

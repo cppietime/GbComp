@@ -608,6 +608,7 @@ namespace gbds
 
         struct BinOpReg : public Opcode
         {
+            BinOpReg(BinOp op, RegisterByte src) : op{op}, src{src} {}
             ~BinOpReg() override = default;
             const BinOp op;
             const RegisterByte src;
@@ -743,6 +744,7 @@ namespace gbds
 
         struct JumpSymbol : public Opcode
         {
+            JumpSymbol(Condition cnd, std::string sym) : condition{cnd}, symbol{sym} {}
             ~JumpSymbol() override = default;
             const Condition condition;
             const std::string symbol;
@@ -967,7 +969,7 @@ namespace gbds
 
         struct LinkedFunction
         {
-            std::vector<uint8_t> data;
+            const std::vector<uint8_t> data;
             const std::map<size_t, Patch> patches;
 
             bool operator==(const LinkedFunction &other) const
@@ -1084,7 +1086,7 @@ namespace gbds
             /// @param start_offset In: The position, in bytes, of the start of the function in ROM
             /// @param buffer
             /// @param patch_accum
-            void WriteFunction_(const std::span<uint8_t> data, const std::map<size_t, Patch> &patches_in, size_t start_offset, std::ostream &buffer, std::map<size_t, Patch> &patch_accum);
+            void WriteFunction_(const std::span<const uint8_t> data, const std::map<size_t, Patch> &patches_in, size_t start_offset, std::ostream &buffer, std::map<size_t, Patch> &patch_accum);
 
             /// @brief Backpatch symbol pointers in a buffering stream
             /// @param patches 
@@ -1100,6 +1102,8 @@ namespace gbds
 
         public:
             LinkedFunction LinkFunction(const OpcodeFunction &func);
+
+            void Write(const Header& header, const std::map<std::string_view, gbops::AddressWord> &symbols, const std::map<std::string_view, LinkedFunction>& functions, std::ostream &stream);
         };
 
     } // namespace linker
