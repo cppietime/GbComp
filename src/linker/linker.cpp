@@ -135,17 +135,31 @@ namespace gbds
 
         void Linker::WriteHeader_(const Header& header, std::ostream& stream) const {
             // NOP; JP <starting_point>;
-            WriteByte(stream, 0x00);
-            WriteByte(stream, 0xC3);
-            WriteWordLE(stream, header.starting_point);
+            WriteByte(stream, 0x00); // 0x101
+            WriteByte(stream, 0xC3); // 0x102
+            WriteWordLE(stream, header.starting_point); // 0x104
 
             char zeros[48] {0}; // Logo placeholder
-            stream.write(zeros, sizeof(zeros));
-            stream.write(reinterpret_cast<const char*>(&header.long_title), 26);
-            uint8_t checksum = header.Checksum();
+            stream.write(zeros, sizeof(zeros)); // 0x134
+            stream.write(reinterpret_cast<const char*>(&header.long_title), 25); // 0x14D
+            uint8_t checksum = header.Checksum(); // 0x14E
             WriteByte(stream, checksum);
+            // Does not write global checksum
         }
 
+        void Linker::WriteChecksum_(std::iostream& stream) const {
+            stream.seekg(0);
+            char c;
+            uint16_t checksum = 0;
+            while((c = stream.get()) != EOF) {
+                checksum += c & 0xff;
+            }
+            stream.clear(); // Clear EOF bit
+            stream.seekp(0x14E);
+            WriteWordLE(stream, checksum);
+        }
+
+        // Fill a ROM up to a certain size
         static void pad_to(std::ostream& stream, size_t len, char fill = 0) {
             stream.seekp(0, std::ios::end);
             size_t pos = stream.tellp();
@@ -158,7 +172,7 @@ namespace gbds
             stream.write(zeros.data(), remaining);
         }
 
-        void Linker::Write(const Header& header, const std::map<std::string_view, gbops::AddressWord>& symbols, const std::map<std::string_view, LinkedFunction>& funcs, std::ostream& stream) {
+        void Linker::Write(const Header& header, const std::map<std::string_view, gbops::AddressWord>& symbols, const std::map<std::string_view, LinkedFunction>& funcs, std::iostream& stream) {
             // Write header
             stream.seekp(0);
             pad_to(stream, 0x100);
@@ -185,6 +199,9 @@ namespace gbds
             // Write remaining padding
             size_t total_rom_size = 1 << (15 + header.rom_size_exp);
             pad_to(stream, total_rom_size);
+
+            // Write global checksum
+            WriteChecksum_(stream);
         }
 
     } // namespace linker

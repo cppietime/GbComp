@@ -1100,10 +1100,17 @@ namespace gbds
             /// @param stream Should be at position 0x100
             void WriteHeader_(const Header& header, std::ostream& stream) const;
 
+            void WriteChecksum_(std::iostream& stream) const;
+
         public:
             LinkedFunction LinkFunction(const OpcodeFunction &func);
 
-            void Write(const Header& header, const std::map<std::string_view, gbops::AddressWord> &symbols, const std::map<std::string_view, LinkedFunction>& functions, std::ostream &stream);
+            /// @brief Write the header and collection of functions
+            /// @param header 
+            /// @param symbols Includes functions AND global vars
+            /// @param functions This MAY also end up including read-only ROM data
+            /// @param stream Output. Will be positioned at end of ROM at function's return
+            void Write(const Header& header, const std::map<std::string_view, gbops::AddressWord> &symbols, const std::map<std::string_view, LinkedFunction>& functions, std::iostream &stream);
         };
 
     } // namespace linker
