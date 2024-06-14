@@ -51,6 +51,16 @@ namespace gbds
     namespace linker
     {
 
+        OpcodeFunction OpcodeFunction::OptimizeBlind() {
+            using namespace gbops;
+            std::vector<std::unique_ptr<Opcode>> new_opcodes;
+            std::map<size_t, std::string_view> new_labels;
+            std::map<size_t, Patch> new_patches;
+            // TODO optimize individual opcodes
+            // return {std::string(name), std::move(new_opcodes), std::move(new_labels), std::move(new_patches)};
+            return *this;
+        }
+
         size_t Linker::LinkFunction_(const std::string_view function_name, const std::span<const std::unique_ptr<gbops::Opcode>> ops, const std::map<size_t, std::string_view> &labels_in, const std::map<size_t, Patch> &patches_in, std::ostream &buffer, std::map<size_t, Patch> &patches_out)
         {
             size_t offset = 0;

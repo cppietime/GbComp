@@ -1,3 +1,5 @@
 **/.vscode
 *.o
 *.gb
+src/linker/test/linker_test
+

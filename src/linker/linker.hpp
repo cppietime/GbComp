@@ -214,6 +214,33 @@ namespace gbds
 
         struct Opcode
         {
+            const enum class OPCODE {
+                MOVE_BYTE,
+                STORE_BYTE,
+                LOAD_BYTE,
+                MEM_HIGH,
+                MEM_MOVE,
+                LOAD_WORD,
+                STORE_STACK_POINTER,
+                MOVE_STACK_POINTER,
+                INC_WORD,
+                DEC_WORD,
+                ADD_HL,
+                ADD_STACK_POINTER,
+                BIN_OP_REG,
+                BIN_OP_MEM,
+                PUSH,
+                POP,
+                JUMP_RELATIVE,
+                JUMP_IMMEDIATE,
+                CALL,
+                RET,
+                RST,
+                ROT,
+                BIT,
+                BYTE
+            } type;
+            Opcode(OPCODE type) : type{type} {}
             virtual ~Opcode() = default;
             virtual std::string ToString() const = 0;
             virtual size_t write(std::ostream &) const = 0;
@@ -231,7 +258,7 @@ namespace gbds
 
         struct MoveByte : public Opcode
         {
-            MoveByte(RegisterByte dst, std::variant<RegisterByte, ImmediateByte> src) : dst{dst}, src{src} {}
+            MoveByte(RegisterByte dst, std::variant<RegisterByte, ImmediateByte> src) : Opcode{OPCODE::MOVE_BYTE}, dst{dst}, src{src} {}
             ~MoveByte() override = default;
             const RegisterByte dst;
             const std::variant<RegisterByte, ImmediateByte> src;
@@ -270,7 +297,7 @@ namespace gbds
 
         struct StoreByte : public Opcode
         {
-            StoreByte(RegisterPointer dst) : dst{dst} {}
+            StoreByte(RegisterPointer dst) : Opcode{OPCODE::STORE_BYTE}, dst{dst} {}
             ~StoreByte() override = default;
             const RegisterPointer dst;
 
@@ -298,7 +325,7 @@ namespace gbds
 
         struct LoadByte : public Opcode
         {
-            LoadByte(RegisterPointer src) : src{src} {}
+            LoadByte(RegisterPointer src) : Opcode{OPCODE::LOAD_BYTE}, src{src} {}
             ~LoadByte() override = default;
             const RegisterPointer src;
 
@@ -326,7 +353,7 @@ namespace gbds
 
         struct MemHigh : public Opcode
         {
-            MemHigh(ImmediateByte address, bool store) : address{address}, store{store} {}
+            MemHigh(ImmediateByte address, bool store) : Opcode{OPCODE::MEM_HIGH}, address{address}, store{store} {}
             ~MemHigh() override = default;
             ImmediateByte address;
             bool store;
@@ -351,7 +378,7 @@ namespace gbds
 
         struct MemMove : public Opcode
         {
-            MemMove(ImmediateWord address, bool store) : address{address}, store{store} {}
+            MemMove(ImmediateWord address, bool store) : Opcode{OPCODE::MEM_MOVE}, address{address}, store{store} {}
             ~MemMove() override = default;
             ImmediateWord address;
             bool store;
@@ -377,7 +404,7 @@ namespace gbds
 
         struct LoadWord : public Opcode
         {
-            LoadWord(RegisterWord dst, ImmediateWord src) : dst{dst}, src{src} {}
+            LoadWord(RegisterWord dst, ImmediateWord src) : Opcode{OPCODE::LOAD_WORD}, dst{dst}, src{src} {}
             ~LoadWord() override = default;
             const RegisterWord dst;
             const ImmediateWord src;
@@ -403,6 +430,7 @@ namespace gbds
 
         struct StoreStackPointer : public Opcode
         {
+            StoreStackPointer(AddressWord addr) : Opcode{OPCODE::STORE_STACK_POINTER}, dst{addr} {}
             ~StoreStackPointer() override = default;
             const AddressWord dst;
 
@@ -608,7 +636,7 @@ namespace gbds
 
         struct BinOpReg : public Opcode
         {
-            BinOpReg(BinOp op, RegisterByte src) : op{op}, src{src} {}
+            BinOpReg(BinOp op, RegisterByte src) : Opcode{OPCODE::BIN_OP_REG}, op{op}, src{src} {}
             ~BinOpReg() override = default;
             const BinOp op;
             const RegisterByte src;
@@ -742,28 +770,9 @@ namespace gbds
             }
         };
 
-        struct JumpSymbol : public Opcode
-        {
-            JumpSymbol(Condition cnd, std::string sym) : condition{cnd}, symbol{sym} {}
-            ~JumpSymbol() override = default;
-            const Condition condition;
-            const std::string symbol;
-
-            std::string ToString() const override
-            {
-                return "JP " + condition_names[e2i(condition)] + symbol;
-            }
-
-            size_t write(std::ostream &stream) const override
-            {
-                std::string msg = "Jump to symbol \"" + symbol + "\" has not been resolved";
-                throw msg;
-            }
-        };
-
         struct JumpImmediate : public Opcode
         {
-            JumpImmediate(Condition condition, ImmediateWord address) : condition{condition}, address{address} {}
+            JumpImmediate(Condition condition, ImmediateWord address) : Opcode{OPCODE::JUMP_IMMEDIATE}, condition{condition}, address{address} {}
             ~JumpImmediate() override = default;
             const Condition condition;
             const ImmediateWord address;
@@ -801,7 +810,7 @@ namespace gbds
 
         struct Call : public Opcode
         {
-            Call(Condition condition, ImmediateWord address) : condition{condition}, address{address} {}
+            Call(Condition condition, ImmediateWord address) : Opcode{OPCODE::CALL}, condition{condition}, address{address} {}
             ~Call() override = default;
             const Condition condition;
             const ImmediateWord address;
@@ -855,7 +864,7 @@ namespace gbds
 
         struct RotOpReg : public Opcode
         {
-            RotOpReg(RotOp op, RegisterByte reg) : op{op}, reg{reg} {}
+            RotOpReg(RotOp op, RegisterByte reg) : Opcode{OPCODE::ROT}, op{op}, reg{reg} {}
             ~RotOpReg() override = default;
             const RotOp op;
             const RegisterByte reg;
@@ -886,7 +895,7 @@ namespace gbds
 
         struct BitOpReg : public Opcode
         {
-            BitOpReg(BitOp op, Bit bit, RegisterByte reg) : op{op}, bit{bit}, reg{reg} {}
+            BitOpReg(BitOp op, Bit bit, RegisterByte reg) : Opcode{OPCODE::BIT}, op{op}, bit{bit}, reg{reg} {}
             ~BitOpReg() override = default;
             const BitOp op;
             const Bit bit;
@@ -917,7 +926,7 @@ namespace gbds
 
         struct ByteOpcode : public Opcode
         {
-            ByteOpcode(ByteOp op) : op{op} {}
+            ByteOpcode(ByteOp op) : Opcode{OPCODE::BYTE}, op{op} {}
             ~ByteOpcode() override = default;
             const ByteOp op;
 
@@ -965,6 +974,8 @@ namespace gbds
             const std::vector<std::unique_ptr<gbops::Opcode>> opcodes;
             const std::map<size_t, std::string_view> labels;
             const std::map<size_t, Patch> patches;
+
+            OpcodeFunction OptimizeBlind();
         };
 
         struct LinkedFunction
